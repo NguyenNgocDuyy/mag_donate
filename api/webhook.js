@@ -29,24 +29,39 @@ export default async function handler(req, res) {
     } else if (body.transferAmount !== undefined) {
         amount      = Number(body.transferAmount)
         description = String(body.content || "")
-        when        = body.transactionDate || new Date().toISOString()
+        // SePay time is GMT+7 — append offset so Supabase stores it correctly
+        const rawTime = body.transactionDate || ""
+        when = rawTime ? rawTime.replace(" ", "T") + "+07:00" : new Date().toISOString()
     } else {
         return res.status(200).json({ success: true })
     }
 
-    // if (!description.trim().toUpperCase().startsWith(PHRASE)) {
-    //     return res.status(200).json({ success: true })
-    // }
-    // original code here
+    if (!description.trim().toUpperCase().startsWith(PHRASE)) {
+        return res.status(200).json({ success: true })
+    }
+
     const afterPhrase = description.trim().slice(PHRASE.length).trim()
-    //const afterPhrase = description //modified to skip start phrase
     let donorName = "Ẩn danh"
     let message   = afterPhrase
 
-    const colonIdx = afterPhrase.indexOf("-")
-    if (colonIdx > 0) {
-        donorName = afterPhrase.slice(0, colonIdx).trim() || "Ẩn danh"
-        message   = afterPhrase.slice(colonIdx + 1).trim()
+    // Try to split name from message using " - " as separator
+    const dashIdx = afterPhrase.indexOf(" - ")
+    if (dashIdx > 0) {
+        donorName = afterPhrase.slice(0, dashIdx).trim() || "Ẩn danh"
+        message   = afterPhrase.slice(dashIdx + 3).trim()
+    }
+
+    // If no separator found, try to get sender name from SePay's description field
+    // SePay description looks like "BankAPINotify NGUYEN VAN A chuyen tien"
+    if (donorName === "Ẩn danh" && body.description) {
+        const descParts = String(body.description).replace("BankAPINotify", "").trim()
+        // Remove common suffixes banks append
+        const cleaned = descParts
+            .replace(/chuyen tien/gi, "")
+            .replace(/CHUYEN TIEN/gi, "")
+            .replace(/FT\w+/g, "")
+            .trim()
+        if (cleaned.length > 0) donorName = cleaned
     }
 
     const { error } = await supabase.from("donations").insert({
