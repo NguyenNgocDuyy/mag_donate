@@ -27,13 +27,13 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: "Method not allowed" })
     }
 
-    // ── Verify secret token ───────────────────────────────────────────────────
-    // Casso sends it as ?token=... in the query string.
-    // SePay sends it as the Authorization header: "Apikey YOUR_SECRET"
-    const tokenFromQuery  = req.query.token
-    const tokenFromHeader = (req.headers.authorization || "").replace("Apikey ", "").trim()
-    const providedToken   = tokenFromQuery || tokenFromHeader
+if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" })
+}
 
+// ── Parse body ──────────────────────────
+const body = req.body
+...
     // ── Parse body ────────────────────────────────────────────────────────────
     const body = req.body
 
