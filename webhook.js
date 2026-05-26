@@ -34,10 +34,6 @@ export default async function handler(req, res) {
     const tokenFromHeader = (req.headers.authorization || "").replace("Apikey ", "").trim()
     const providedToken   = tokenFromQuery || tokenFromHeader
 
-    if (providedToken !== process.env.WEBHOOK_SECRET) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
-
     // ── Parse body ────────────────────────────────────────────────────────────
     const body = req.body
 
