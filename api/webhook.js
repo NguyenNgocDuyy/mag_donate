@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     //     return res.status(200).json({ success: true })
     // }
 
-    const afterPhrase = description.trim().slice(PHRASE.length).trim()
+    const afterPhrase = description
     let donorName = "Ẩn danh"
     let message   = afterPhrase
 
