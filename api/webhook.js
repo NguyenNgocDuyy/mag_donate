@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     let donorName = "Ẩn danh"
     let message   = afterPhrase
 
-    const colonIdx = afterPhrase.indexOf(":")
+    const colonIdx = afterPhrase.indexOf("-")
     if (colonIdx > 0) {
         donorName = afterPhrase.slice(0, colonIdx).trim() || "Ẩn danh"
         message   = afterPhrase.slice(colonIdx + 1).trim()
