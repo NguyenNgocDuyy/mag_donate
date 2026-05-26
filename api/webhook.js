@@ -1,4 +1,4 @@
-// v3
+// v4
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -8,11 +8,8 @@ const supabase = createClient(
 
 const PHRASE = (process.env.DONATION_PHRASE || "DONATE").trim().toUpperCase()
 
-// Remove MB Bank reference codes like "Q2YI1BS4/544360" from end of string
 function stripRefCode(text) {
-    return text
-        .replace(/\s*[A-Z0-9]{6,12}\/\d{4,10}\s*$/i, "")
-        .trim()
+    return text.replace(/\s*[A-Z0-9]{6,12}\/\d{4,10}\s*$/i, "").trim()
 }
 
 export default async function handler(req, res) {
@@ -25,7 +22,6 @@ export default async function handler(req, res) {
 
     try {
         const body = req.body || {}
-
         let amount, rawContent, when
 
         if (body.data && Array.isArray(body.data)) {
@@ -37,55 +33,58 @@ export default async function handler(req, res) {
             amount     = Number(body.transferAmount)
             rawContent = String(body.content || "")
             const rawTime = String(body.transactionDate || "")
-            when = rawTime
-                ? rawTime.replace(" ", "T") + "+07:00"
-                : new Date().toISOString()
+            when = rawTime ? rawTime.replace(" ", "T") + "+07:00" : new Date().toISOString()
         } else {
             return res.status(200).json({ success: true })
         }
 
-        // Find phrase anywhere in the message (banks may prepend numbers/text)
         const upperContent = rawContent.toUpperCase()
         const phraseIdx    = upperContent.indexOf(PHRASE)
-
         if (phraseIdx === -1) {
             return res.status(200).json({ success: true })
         }
 
-        // Everything after the phrase keyword, ref code stripped
-        let afterPhrase = stripRefCode(
-            rawContent.slice(phraseIdx + PHRASE.length).trim()
-        )
+        let afterPhrase = stripRefCode(rawContent.slice(phraseIdx + PHRASE.length).trim())
+        const upper     = afterPhrase.toUpperCase()
 
         let donorName = "Ẩn danh"
-        let message   = afterPhrase
+        let message   = ""
 
-        // ── Keyword format: "arkivist name NgocDuy msg xin chao vietnam" ──
-        // Banks convert everything to uppercase so we search case-insensitively
-        const upper   = afterPhrase.toUpperCase()
+        // Find NAME keyword (must have content after it)
         const nameIdx = upper.indexOf("NAME ")
-        const msgIdx  = upper.indexOf(" MSG ")
+        // Find MSG keyword — works whether at start or in the middle
+        const msgAtStart  = upper.startsWith("MSG ") ? 0 : -1
+        const msgInMiddle = upper.indexOf(" MSG ")
+        const msgIdx      = msgInMiddle !== -1 ? msgInMiddle : msgAtStart
 
         if (nameIdx !== -1 && msgIdx !== -1 && msgIdx > nameIdx) {
-            // Both keywords present
-            donorName = stripRefCode(afterPhrase.slice(nameIdx + 5, msgIdx).trim()) || "Ẩn danh"
-            message   = stripRefCode(afterPhrase.slice(msgIdx + 5).trim())
-        } else if (nameIdx !== -1) {
-            // Only name keyword
+            // Both: "name Duy msg hello"
+            const nameEnd = msgIdx === msgAtStart ? msgIdx : msgInMiddle
+            donorName = stripRefCode(afterPhrase.slice(nameIdx + 5, nameEnd).trim()) || "Ẩn danh"
+            const msgContentStart = msgIdx === msgAtStart ? 4 : msgInMiddle + 5
+            message   = stripRefCode(afterPhrase.slice(msgContentStart).trim())
+        } else if (nameIdx !== -1 && msgIdx === -1) {
+            // Only name: "name Duy"
             donorName = stripRefCode(afterPhrase.slice(nameIdx + 5).trim()) || "Ẩn danh"
             message   = ""
         } else if (msgIdx !== -1) {
-            // Only msg keyword
-            message = stripRefCode(afterPhrase.slice(msgIdx + 5).trim())
+            // Only msg (no name): "msg hello" → name stays Ẩn danh
+            const msgContentStart = msgIdx === msgAtStart ? 4 : msgInMiddle + 5
+            message = stripRefCode(afterPhrase.slice(msgContentStart).trim())
+        } else {
+            // No keywords at all → treat whole thing as message
+            message = stripRefCode(afterPhrase)
         }
 
-        // Fallback: use bank sender name from SePay's description field
-        if (donorName === "Ẩn danh" && body.description) {
+        // Fallback: use bank sender name only when name keyword was not provided
+        if (donorName === "Ẩn danh" && nameIdx === -1 && body.description) {
             const autoName = String(body.description)
                 .replace(/BankAPINotify/gi, "")
+                .replace(new RegExp(PHRASE, "gi"), "")
                 .replace(/chuyen tien/gi, "")
                 .replace(/FT[A-Z0-9]+/gi, "")
                 .replace(/[A-Z0-9]{6,12}\/\d{4,10}/gi, "")
+                .replace(/MSG .*/gi, "")
                 .trim()
             if (autoName.length > 0) donorName = autoName
         }
