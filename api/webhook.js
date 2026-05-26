@@ -34,9 +34,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true })
     }
 
-    if (!description.trim().toUpperCase().startsWith(PHRASE)) {
-        return res.status(200).json({ success: true })
-    }
+    // if (!description.trim().toUpperCase().startsWith(PHRASE)) {
+    //     return res.status(200).json({ success: true })
+    // }
 
     const afterPhrase = description.trim().slice(PHRASE.length).trim()
     let donorName = "Ẩn danh"
