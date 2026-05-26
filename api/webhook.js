@@ -37,8 +37,9 @@ export default async function handler(req, res) {
     // if (!description.trim().toUpperCase().startsWith(PHRASE)) {
     //     return res.status(200).json({ success: true })
     // }
-
-    const afterPhrase = description
+    // original code here
+    const afterPhrase = description.trim().slice(PHRASE.length).trim()
+    //const afterPhrase = description //modified to skip start phrase
     let donorName = "Ẩn danh"
     let message   = afterPhrase
 
